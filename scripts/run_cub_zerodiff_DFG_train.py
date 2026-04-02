@@ -11,7 +11,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DATAROOT = ROOT / 'Dataset'
-NETR_MODEL = ROOT / 'out' / 'CUB' / 'zerodiff_DRG_100percent_att:att_b:64_lr:0.0001_n_T:4_betas:0.1,20_gamma:ADV:1.0_VAE:0.0_x0:1.0_xt:1.0_dist:1.0_num:300_gzsl.tar'
+NETR_MODEL_CANDIDATES = [
+	ROOT / 'out' / 'CUB' / 'zerodiff_DRG_100percent_att:att_b:64_lr:0.0001_n_T:4_betas:0.1,20_gamma:ADV:1.0_VAE:0.0_x0:1.0_xt:1.0_dist:1.0_num:300_gzsl.tar',
+	ROOT / 'out' / 'CUB' / 'zerodiff_DRG_100percent_att:att_b:64_lr:0.0001_n_T:4_betas:0.1,20_gamma:ADV:1.0_VAE:0.0_x0:1.0_xt:1.0_dist:1.0_num:300_zsl.tar',
+]
+NETR_MODEL = next((path for path in NETR_MODEL_CANDIDATES if path.exists()), NETR_MODEL_CANDIDATES[0])
 
 env = os.environ.copy()
 env['OMP_NUM_THREADS'] = '3'

@@ -6,7 +6,6 @@ import torch
 import torch.autograd as autograd
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
-from torch.autograd import Variable
 # import functions
 import datasets.image_util as util
 import classifiers.classifier_images as classifier
@@ -114,7 +113,7 @@ def sampleTestSeen():
     input_test_con.copy_(batch_con)
     input_test_att.copy_(batch_att)
 
-    return Variable(input_test_res), Variable(input_test_con), Variable(input_test_att)
+    return input_test_res, input_test_con, input_test_att
 
 def WeightedL14att(pred, gt):
     wt = (pred - gt).pow(2)
@@ -134,14 +133,13 @@ def generate_syn_feature(zerodiff, classes, attribute, num, progressive=False):
         iclass = classes[i]
         iclass_att = attribute[iclass]
         syn_att.copy_(iclass_att.repeat(num, 1))
-        att = Variable(syn_att, volatile=True)
-
-        fake, fake_con = zerodiff.sample_from_model(att, progressive=progressive)
+        with torch.no_grad():
+            fake, fake_con = zerodiff.sample_from_model(syn_att, progressive=progressive)
 
         output = fake
         output_con = fake_con
-        syn_feature.narrow(0, i * num, num).copy_(output.data.cpu())
-        syn_con.narrow(0, i * num, num).copy_(output_con.data.cpu())
+        syn_feature.narrow(0, i * num, num).copy_(output.detach().cpu())
+        syn_con.narrow(0, i * num, num).copy_(output_con.detach().cpu())
         syn_label.narrow(0, i * num, num).fill_(iclass)
 
     return syn_feature, syn_con, syn_label
@@ -229,9 +227,9 @@ class ZERODIFF(torch.nn.Module):
             D_cost, Wasserstein_D, gp_sum, distill_loss = self.update_D(x_0_real, con_0_real, att_0_real, gp_sum, label)
 
         gp_sum /= (self.gamma_ADV * self.lambda1 * opt.critic_iter)
-        if (gp_sum > 1.05).sum() > 0:
+        if gp_sum > 1.05:
             self.lambda1 *= 1.1
-        elif (gp_sum < 1.001).sum() > 0:
+        elif gp_sum < 1.001:
             self.lambda1 /= 1.1
         G_cost, vae_loss_seen = self.update_G(x_0_real, con_0_real, att_0_real, label)
         return D_cost, Wasserstein_D, distill_loss, G_cost, vae_loss_seen
@@ -282,12 +280,12 @@ class ZERODIFF(torch.nn.Module):
         criticD_fake.backward()
 
         # gradient penalty
-        gp_x0 = self.netD_x0.calc_gradient_penalty(x_0_real, x_0_fake.data, att_0_real, self.lambda1)
-        gp_xt = self.netD_xt.calc_gradient_penalty(x_t_real, x_t_fake.data, x_tp1_real, att_0_real, con_0_real, _ts_feat, self.lambda1)
-        gp_xc = self.netD_xc.calc_gradient_penalty(x_0_real, x_0_fake.data, con_0_real, self.lambda1)
+        gp_x0 = self.netD_x0.calc_gradient_penalty(x_0_real, x_0_fake.detach(), att_0_real, self.lambda1)
+        gp_xt = self.netD_xt.calc_gradient_penalty(x_t_real, x_t_fake.detach(), x_tp1_real, att_0_real, con_0_real, _ts_feat, self.lambda1)
+        gp_xc = self.netD_xc.calc_gradient_penalty(x_0_real, x_0_fake.detach(), con_0_real, self.lambda1)
         gp = self.gamma_ADV * (self.gamma_x0 * gp_x0 + self.gamma_xt * gp_xt + gp_xc)
         gp.backward()
-        gp_sum += gp.data
+        gp_sum += gp.item()
         Wasserstein_D = criticD_real - criticD_fake
 
         # distill
@@ -402,7 +400,7 @@ class ZERODIFF(torch.nn.Module):
 
             if progressive:
                 for i in reversed(range(self.n_T)):
-                    _ts = torch.full((n_sample,), i, dtype=torch.int64).to(x_t.device)
+                    _ts = torch.full((n_sample,), i, dtype=torch.int64).to(x_tp1.device)
                     x_0_pred = self.netG(z, att, r_0_fake, x_tp1, _ts)
                     x_t = self.sample_posterior(x_0_pred, x_tp1, _ts.long())
                     x_tp1 = x_t.detach()
@@ -521,7 +519,7 @@ for epoch in range(0, opt.nepoch):
     print(log_record)
     logger.write(log_record + '\n')
 
-    criticD_train_real_x0 = ZERODIFF.interval_recorder_sum['criticD_train_real_x0'].item() / n_iter
+    criticD_train_real_x0 = zerodiff.interval_recorder_sum['criticD_train_real_x0'].item() / n_iter
     criticD_train_real_xt = zerodiff.interval_recorder_sum['criticD_train_real_xt'].item() / n_iter
     criticD_train_real_xc = zerodiff.interval_recorder_sum['criticD_train_real_xc'].item() / n_iter
 

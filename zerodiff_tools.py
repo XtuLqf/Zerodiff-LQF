@@ -6,7 +6,6 @@ import torch.nn.functional as F
 import torch.autograd as autograd
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
-from torch.autograd import Variable
 import numpy as np
 import datasets.image_util as util
 import torch.nn.init as init
@@ -51,7 +50,6 @@ class Encoder(nn.Module):
 
         std = torch.exp(0.5 * log_vars)
         eps = torch.randn([batch_size, self.latent_size]).to(x.device)
-        eps = Variable(eps)
         z = eps * std + means  # torch.Size([64, 312])
         return z, means, log_vars
 
@@ -198,8 +196,8 @@ class DFG_Discriminator_xc(nn.Module):
         alpha = alpha.to(real_data.device)
         interpolates = alpha * real_data + ((1 - alpha) * fake_data)
         interpolates = interpolates.to(real_data.device)
-        interpolates = Variable(interpolates, requires_grad=True)
-        disc_interpolates = self.forward(interpolates, Variable(input_con))
+        interpolates.requires_grad_(True)
+        disc_interpolates = self.forward(interpolates, input_con)
         ones = torch.ones(disc_interpolates.size())
         ones = ones.to(real_data.device)
         gradients = autograd.grad(outputs=disc_interpolates, inputs=interpolates,
@@ -229,8 +227,8 @@ class DFG_Discriminator_x0(nn.Module):
         alpha = alpha.to(real_data.device)
         interpolates = alpha * real_data + ((1 - alpha) * fake_data)
         interpolates = interpolates.to(real_data.device)
-        interpolates = Variable(interpolates, requires_grad=True)
-        disc_interpolates = self.forward(interpolates, Variable(input_att))
+        interpolates.requires_grad_(True)
+        disc_interpolates = self.forward(interpolates, input_att)
         ones = torch.ones(disc_interpolates.size())
         ones = ones.to(real_data.device)
         gradients = autograd.grad(outputs=disc_interpolates, inputs=interpolates,
@@ -271,8 +269,8 @@ class DRG_Discriminator_ct(nn.Module):
         alpha = alpha.to(real_x_t.device)
         interpolates = alpha * real_x_t + ((1 - alpha) * fake_x_t)
         interpolates = interpolates.to(real_x_t.device)
-        interpolates = Variable(interpolates, requires_grad=True)
-        disc_interpolates = self.forward(interpolates, real_x_tp1, Variable(input_att), t)
+        interpolates.requires_grad_(True)
+        disc_interpolates = self.forward(interpolates, real_x_tp1, input_att, t)
         ones = torch.ones(disc_interpolates.size())
         ones = ones.to(real_x_t.device)
         gradients = autograd.grad(outputs=disc_interpolates, inputs=interpolates,
@@ -319,8 +317,8 @@ class DFG_Discriminator_xt(nn.Module):
         alpha = alpha.to(real_x_t.device)
         interpolates = alpha * real_x_t + ((1 - alpha) * fake_x_t)
         interpolates = interpolates.to(real_x_t.device)
-        interpolates = Variable(interpolates, requires_grad=True)
-        disc_interpolates = self.forward(interpolates, real_x_tp1, Variable(input_att), Variable(input_con), t)
+        interpolates.requires_grad_(True)
+        disc_interpolates = self.forward(interpolates, real_x_tp1, input_att, input_con, t)
         ones = torch.ones(disc_interpolates.size())
         ones = ones.to(real_x_t.device)
         gradients = autograd.grad(outputs=disc_interpolates, inputs=interpolates,

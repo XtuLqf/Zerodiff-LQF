@@ -2,7 +2,6 @@
 # ZeroDiff (ICLR25)
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 import torch.optim as optim
 import numpy as np
 import datasets.image_util as util
@@ -88,10 +87,8 @@ class CLASSIFIER:
                 self.input.copy_(batch_input)
                 self.label.copy_(batch_label)
 
-                inputv = Variable(self.input)
-                labelv = Variable(self.label)
-                output = self.model(inputv)
-                loss = self.criterion(output, labelv)
+                output = self.model(self.input)
+                loss = self.criterion(output, self.label)
                 loss.backward()
                 self.optimizer.step()
             acc_list, acc = self.val(self.test_seen_feature, self.test_seen_label, self.seenclasses)
@@ -110,10 +107,8 @@ class CLASSIFIER:
                 self.input.copy_(batch_input)
                 self.label.copy_(batch_label)
 
-                inputv = Variable(self.input)
-                labelv = Variable(self.label)
-                output = self.model(inputv)
-                loss = self.criterion(output, labelv)
+                output = self.model(self.input)
+                loss = self.criterion(output, self.label)
                 loss.backward()
                 self.optimizer.step()
             acc_list, acc = self.val(self.test_unseen_feature, self.test_unseen_label, self.unseenclasses)
@@ -138,10 +133,8 @@ class CLASSIFIER:
                 self.input.copy_(batch_input)
                 self.label.copy_(batch_label)
 
-                inputv = Variable(self.input)
-                labelv = Variable(self.label)
-                output = self.model(inputv)
-                loss = self.criterion(output, labelv)
+                output = self.model(self.input)
+                loss = self.criterion(output, self.label)
                 loss.backward()
                 self.optimizer.step()
             acc_seen = 0
@@ -203,11 +196,11 @@ class CLASSIFIER:
             end = min(ntest, start + self.batch_size)
             with torch.no_grad():
                 if self.cuda:
-                    inputX = Variable(test_X[start:end].cuda())
+                    inputX = test_X[start:end].cuda()
                 else:
-                    inputX = Variable(test_X[start:end])
+                    inputX = test_X[start:end]
             output = self.model(inputX)
-            _, predicted_label[start:end] = torch.max(output.data, 1)
+            _, predicted_label[start:end] = torch.max(output, 1)
             start = end
 
         acc_list, acc = self.compute_per_class_acc_gzsl(test_label, predicted_label, target_classes)
@@ -233,11 +226,11 @@ class CLASSIFIER:
             end = min(ntest, start + self.batch_size)
             with torch.no_grad():
                 if self.cuda:
-                    inputX = Variable(test_X[start:end].cuda())
+                    inputX = test_X[start:end].cuda()
                 else:
-                    inputX = Variable(test_X[start:end])
+                    inputX = test_X[start:end]
             output = self.model(inputX)
-            _, predicted_label[start:end] = torch.max(output.data, 1)
+            _, predicted_label[start:end] = torch.max(output, 1)
             start = end
 
         acc_list, acc = self.compute_per_class_acc(util.map_label(test_label, target_classes), predicted_label,
@@ -259,9 +252,9 @@ class CLASSIFIER:
             end = min(ntest, start + self.batch_size)
             with torch.no_grad():
                 if self.cuda:
-                    inputX = Variable(test_X[start:end].cuda())
+                    inputX = test_X[start:end].cuda()
                 else:
-                    inputX = Variable(test_X[start:end])
+                    inputX = test_X[start:end]
             inputData = []
             if self.useV:
                 inputData.append(inputX)
@@ -272,11 +265,11 @@ class CLASSIFIER:
                 inputData.append(feat2)
             if self.useC:
                 if self.cuda:
-                    inputC = Variable(test_C[start:end].cuda())
+                    inputC = test_C[start:end].cuda()
                 else:
-                    inputC = Variable(test_C[start:end])
+                    inputC = test_C[start:end]
                 inputData.append(inputC)
-            new_test_X[start:end] = torch.cat(inputData, dim=1).data.cpu()
+            new_test_X[start:end] = torch.cat(inputData, dim=1).detach().cpu()
             start = end
         return new_test_X
 

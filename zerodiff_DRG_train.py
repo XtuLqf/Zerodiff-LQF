@@ -109,9 +109,8 @@ def generate_syn_feature(ddpmgan, classes, attribute, num):
         iclass = classes[i]
         iclass_att = attribute[iclass]
         syn_att.copy_(iclass_att.repeat(num, 1))
-        att = Variable(syn_att, volatile=True)
-
-        fake_con = ddpmgan.sample_from_model(att)
+        with torch.no_grad():
+            fake_con = ddpmgan.sample_from_model(syn_att)
         syn_feature.narrow(0, i * num, num).copy_(fake_con.data.cpu())
         syn_label.narrow(0, i * num, num).fill_(iclass)
 
@@ -363,8 +362,8 @@ for epoch in range(0, opt.nepoch):
         syn_unseen_con, syn_unseen_label = generate_syn_feature(zerodiff_drg, data.unseenclasses, data.attribute, opt.syn_num)
         syn_seen_con, syn_seen_label = generate_syn_feature(zerodiff_drg, data.seenclasses, data.attribute, opt.syn_num)
         
-        syn_unseen_feat = syn_unseen_con.copy() # just a placehold in DRG train, not really used
-        syn_seen_feat = syn_seen_con.copy() # just a placehold in DRG train, not really used
+        syn_unseen_feat = syn_unseen_con.clone() # just a placehold in DRG train, not really used
+        syn_seen_feat = syn_seen_con.clone() # just a placehold in DRG train, not really used
 
         # Generalized zero-shot learning
         if opt.gzsl:

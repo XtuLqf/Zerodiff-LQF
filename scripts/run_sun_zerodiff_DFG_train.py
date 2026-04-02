@@ -11,7 +11,26 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DATAROOT = ROOT / 'Dataset'
-NETR_MODEL = ROOT / 'out' / 'SUN' / 'zerodiff_DRG_100percent_att:att_b:64_lr:0.0001_n_T:4_betas:0.1,20_gamma:ADV:1.0_VAE:1.0_x0:1.0_xt:1.0_dist:0.0_num:400_gzsl.tar'
+OUT_DIR = ROOT / 'out' / 'SUN'
+NETR_MODEL_CANDIDATES = [
+	OUT_DIR / 'zerodiff_DRG_100percent_att:att_b:64_lr:0.0001_n_T:4_betas:0.1,20_gamma:ADV:1.0_VAE:1.0_x0:1.0_xt:1.0_dist:0.0_num:400_gzsl.tar',
+	OUT_DIR / 'zerodiff_DRG_100percent_att:att_b:64_lr:0.0001_n_T:4_betas:0.1,20_gamma:ADV:1.0_VAE:1.0_x0:1.0_xt:1.0_dist:0.0_num:400_zsl.tar',
+	OUT_DIR / 'diffzero_pretrain_100percent_att:att_b:64_lr:0.0001_n_T:4_betas:0.1,20_gamma:ADV:1.0_VAE:1.0_x0:1.0_xt:1.0_dist:0.0_num:400_gzsl.tar',
+	OUT_DIR / 'diffzero_pretrain_100percent_att:att_b:64_lr:0.0001_n_T:4_betas:0.1,20_gamma:ADV:1.0_VAE:1.0_x0:1.0_xt:1.0_dist:0.0_num:400_zsl.tar',
+]
+
+for candidate in NETR_MODEL_CANDIDATES:
+	if candidate.exists():
+		NETR_MODEL = candidate
+		break
+else:
+	available = sorted(OUT_DIR.glob('*.tar')) if OUT_DIR.exists() else []
+	if available:
+		NETR_MODEL = available[0]
+	else:
+		raise FileNotFoundError(
+			f'No DRG checkpoint found in {OUT_DIR}. Please run the SUN DRG script first.'
+		)
 
 env = os.environ.copy()
 env['OMP_NUM_THREADS'] = '3'
