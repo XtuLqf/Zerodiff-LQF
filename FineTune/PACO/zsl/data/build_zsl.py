@@ -1,4 +1,5 @@
 from os.path import join
+from pathlib import Path
 
 import torch
 import torch.utils.data as data
@@ -44,9 +45,10 @@ class RandDataset(data.Dataset):
         return self.labels.size(0)
 
 class ImgDatasetParam(object):
+    PROJECT_ROOT = Path(__file__).resolve().parents[4]
     DATASETS = {
-        "imgroot": '/Data_PHD_Backup/phd22_zihan_ye/datasets',
-        "dataroot": '/Data_PHD_Backup/phd22_zihan_ye/datasets/xlsa17/data',
+        "imgroot": str(PROJECT_ROOT / 'Dataset'),
+        "dataroot": str(PROJECT_ROOT / 'Dataset'),
         "image_embedding": 'res101',
         "class_embedding": 'att'
     }
@@ -104,9 +106,11 @@ def build_dataloader(cfg):
     for img_file in img_files:
         img_path = img_file[0]
         if dataset=='CUB':
-            img_path = imgroot[:-4] + img_path.split("MSc/CUB_200_2011")[1]
+            img_rel_path = img_path.split("CUB_200_2011", 1)[1].lstrip('/\\')
+            img_path = join(imgroot, 'CUB_200_2011', img_rel_path)
         elif dataset=='AWA2':
-            img_path = imgroot[:-4] + '/Animals_with_Attributes2/JPEGImages' + img_path.split("JPEGImages")[1]
+            img_rel_path = img_path.split("JPEGImages", 1)[1].lstrip('/\\')
+            img_path = join(imgroot, 'Animals_with_Attributes2', 'JPEGImages', img_rel_path)
         elif dataset=='SUN':
             img_path = join(imgroot, img_path.split("SUN/")[1])
         new_img_files.append(img_path)

@@ -2,6 +2,7 @@ import argparse
 import builtins
 import math
 import os
+from pathlib import Path
 import random
 import shutil
 import time
@@ -124,6 +125,9 @@ parser.add_argument('--aug', default=None, type=str,
                     help='aug strategy')
 parser.add_argument('--rand_m', default=10, type=int, help='rand aug strategy')
 parser.add_argument('--rand_n', default=2, type=int, help='rand aug strategy')
+parser.add_argument('--zsl-dataset', default='AWA2', choices=['AWA2', 'CUB', 'SUN'])
+parser.add_argument('--paco-resume', default='')
+parser.add_argument('--save-path', default='')
 
 # fp16
 parser.add_argument('--fp16', action='store_true', help=' fp16 training')
@@ -145,13 +149,20 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 best_acc = 0
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_PACO_RESUME = PROJECT_ROOT / 'FineTune' / 'PACO' / 'checkpoints' / 'paco_r101.pth'
 
 args = parser.parse_args()
 args.DATASETS_SEMANTIC_TYPE="GBU"
 args.DATASETS_SEMANTIC = "normalized"
-args.DATASETS_NAME = "AWA2"
+args.DATASETS_NAME = args.zsl_dataset
 args.BATCH_SIZE = 128
-num_tr_class = 50
+num_tr_class = {'AWA2': 50, 'CUB': 150, 'SUN': 645}[args.DATASETS_NAME]
+
+if not args.paco_resume:
+    args.paco_resume = str(DEFAULT_PACO_RESUME)
+if not args.save_path:
+    args.save_path = str(PROJECT_ROOT / 'Dataset' / args.DATASETS_NAME / 'con_paco.mat')
 
 args.arch='resnet101'
 model = moco.builder.MoCo(getattr(resnet, args.arch), args.moco_dim, args.moco_k, args.moco_m, args.moco_t, args.mlp, args.normalize)
@@ -164,7 +175,7 @@ print(model)
 criterion_ce = nn.CrossEntropyLoss().cuda()
 criterion = PaCoLoss(alpha=args.alpha, beta=args.beta, gamma=args.gamma, temperature=args.moco_t, K=args.moco_k).cuda()
 
-paco_resume = "./checkpoints/paco_r101.pth"
+paco_resume = args.paco_resume
 
 checkpoint = torch.load(paco_resume)
 # for key in checkpoint['state_dict'].keys():
@@ -250,5 +261,7 @@ for epoch in range(30):
                 feat_record.append(feat_after_avg_q.cpu())
             feat_record = torch.cat(feat_record,dim=0).numpy()
             print(feat_record.shape)
-            savemat('ce_paco.mat', {'features': feat_record})
-            print("Saved at ce_paco.mat.")
+            save_path = Path(args.save_path)
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            savemat(save_path, {'features': feat_record})
+            print(f"Saved at {save_path}.")

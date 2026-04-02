@@ -13,9 +13,11 @@ from config_zerodiff import opt
 import zerodiff_tools
 import torch.nn.functional as F
 import classifiers.classifier_images as classifier
+import os
 
 def save_model(netR, model_save_name, post):
     torch.save({'state_dict_R': netR.state_dict(),
+                'state_dict_G_con': netR.state_dict(),
                 }, model_save_name + post + '.tar')
 
 
@@ -29,6 +31,9 @@ class Logger(object):
         f = open(self.filename + '.log', "a")
         f.write(message)
         f.close()
+
+for folder in ("./log", "./out", f"./log/{opt.dataset}", f"./out/{opt.dataset}"):
+    os.makedirs(folder, exist_ok=True)
 
 logger_name = "./log/%s/zerodiff_DRG_%dpercent_att:%s_b:%d_lr:%s_n_T:%d_betas:%s,%s_gamma:ADV:%.1f_VAE:%.1f_x0:%.1f_xt:%.1f_dist:%.1f_num:%s" % (
     opt.dataset, opt.split_percent, opt.class_embedding, opt.batch_size, str(opt.lr), opt.n_T, str(opt.ddpmbeta1),

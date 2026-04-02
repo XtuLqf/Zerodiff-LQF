@@ -2,6 +2,7 @@ import argparse
 import builtins
 import math
 import os
+from pathlib import Path
 import random
 import shutil
 import time
@@ -136,6 +137,9 @@ parser.add_argument('--aug', default=None, type=str,
                     help='aug strategy')
 parser.add_argument('--rand_m', default=10, type=int, help='rand aug strategy')
 parser.add_argument('--rand_n', default=2, type=int, help='rand aug strategy')
+parser.add_argument('--zsl-dataset', default='AWA2', choices=['AWA2', 'CUB', 'SUN'])
+parser.add_argument('--resnet-resume', default='')
+parser.add_argument('--save-path', default='')
 
 # fp16
 parser.add_argument('--fp16', action='store_true', help=' fp16 training')
@@ -157,14 +161,21 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 best_acc = 0
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_RESNET_RESUME = PROJECT_ROOT / 'pretrained_models' / 'resnet101-5d3b4d8f.pth'
 
 args = parser.parse_args()
 args.DATASETS_SEMANTIC_TYPE="GBU"
 args.DATASETS_SEMANTIC = "normalized"
-args.DATASETS_NAME = "AWA2"
+args.DATASETS_NAME = args.zsl_dataset
 args.BATCH_SIZE = 128
 args.lr = 0.0025 # 5e-5
-num_tr_class = 50
+num_tr_class = {'AWA2': 50, 'CUB': 150, 'SUN': 645}[args.DATASETS_NAME]
+
+if not args.resnet_resume:
+    args.resnet_resume = str(DEFAULT_RESNET_RESUME)
+if not args.save_path:
+    args.save_path = str(PROJECT_ROOT / 'Dataset' / args.DATASETS_NAME / 'ce_ce.mat')
 
 
 
@@ -192,8 +203,7 @@ print(model)
 criterion_ce = nn.CrossEntropyLoss().cuda()
 criterion = PaCoLoss(alpha=args.alpha, beta=args.beta, gamma=args.gamma, temperature=args.moco_t, K=args.moco_k).cuda()
 
-paco_resume = "./checkpoints/paco_r101.pth"
-resnet_resume = "YourAccount/projects/InfZSL/pretrained_models/resnet101-5d3b4d8f.pth"
+resnet_resume = args.resnet_resume
 
 checkpoint = torch.load(resnet_resume)
 # for key in checkpoint['state_dict'].keys():
@@ -287,6 +297,7 @@ for epoch in range(30):
                 feat_record.append(feat.cpu())
             feat_record = torch.cat(feat_record,dim=0).numpy()
             print(feat_record.shape)
-            save_path = "./out/"+args.dataset+"ce_ce_lr" +"_"+str(args.lr)+".mat"
+            save_path = Path(args.save_path)
+            save_path.parent.mkdir(parents=True, exist_ok=True)
             savemat(save_path, {'features': feat_record})
-            print("Saved at: "+save_path)
+            print(f"Saved at: {save_path}")

@@ -33,6 +33,8 @@ folder_name = "./log"
 os.makedirs(folder_name, exist_ok=True)
 folder_name = "./out"
 os.makedirs(folder_name, exist_ok=True)
+os.makedirs(f"./log/{opt.dataset}", exist_ok=True)
+os.makedirs(f"./out/{opt.dataset}", exist_ok=True)
 
 logger_name = "./log/%s/train_zerodiff_DFG_%dpercent_att:%s_b:%d_lr:%s_n_T:%d_betas:%s,%s_gamma:ADV:%.1f_VAE:%.1f_x0:%.1f_xt:%.1f_dist:%.1f_f:%.1f_num:%s" % (
     opt.dataset, opt.split_percent, opt.class_embedding, opt.batch_size, str(opt.lr), opt.n_T, str(opt.ddpmbeta1),
@@ -199,8 +201,11 @@ class ZERODIFF(torch.nn.Module):
         self.data = data
 
         self.netR = zerodiff_tools.DRG_Generator(opt).to(self.device)
-        netR_state_dict = torch.load(netR_model_path)
-        self.netR.load_state_dict(netR_state_dict['state_dict_G_con'])
+        netR_state_dict = torch.load(netR_model_path, map_location=self.device)
+        netR_weights = netR_state_dict.get('state_dict_G_con') or netR_state_dict.get('state_dict_R')
+        if netR_weights is None:
+            raise KeyError("netR checkpoint must contain 'state_dict_G_con' or 'state_dict_R'.")
+        self.netR.load_state_dict(netR_weights)
         self.netR.eval()
 
         self.interval_recorder_sum = {}
