@@ -258,6 +258,7 @@ class ZERODIFF_DRG(torch.nn.Module):
         criticG_fake = self.gamma_x0 * criticG_fake_r0 + self.gamma_xt * criticG_fake_rt
         G_cost = criticG_fake
         errG += G_cost
+        errG += self.gamma_recons * loss_att_mse
 
         errG.backward()
         self.optimizerR.step()
