@@ -13,8 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DATAROOT = ROOT / 'Dataset'
 OUT_DIR = ROOT / 'out' / 'CUB'
 NETR_MODEL_CANDIDATES = [
-	OUT_DIR / 'zerodiff_DRG_100percent_att:att_b:64_lr:0.0001_n_T:4_betas:0.1,20_gamma:ADV:1.0_VAE:0.0_x0:1.0_xt:1.0_dist:1.0_num:300_gzsl.tar',
-	OUT_DIR / 'zerodiff_DRG_100percent_att:att_b:64_lr:0.0001_n_T:4_betas:0.1,20_gamma:ADV:1.0_VAE:0.0_x0:1.0_xt:1.0_dist:1.0_num:300_zsl.tar',
+	OUT_DIR / 'zerodiff_DRG_100percent_att:sent_b:64_lr:0.0001_n_T:4_betas:0.1,20_gamma:ADV:1.0_VAE:0.0_x0:1.0_xt:1.0_dist:1.0_num:300_gzsl.tar',
+	OUT_DIR / 'zerodiff_DRG_100percent_att:sent_b:64_lr:0.0001_n_T:4_betas:0.1,20_gamma:ADV:1.0_VAE:0.0_x0:1.0_xt:1.0_dist:1.0_num:300_zsl.tar',
 ]
 
 for candidate in NETR_MODEL_CANDIDATES:
@@ -37,12 +37,12 @@ command = [
 	sys.executable,
 	'zerodiff_DFG_train.py',
 	'--gzsl', '--encoded_noise', '--manualSeed', '3483', '--preprocessing', '--cuda', '--image_embedding', 'res101',
-	'--class_embedding', 'att', '--nepoch', '300', '--ngh', '4096', '--ndh', '4096', '--lambda1', '10', '--critic_iter', '5',
+	'--class_embedding', 'sent', '--nepoch', '300', '--ngh', '4096', '--ndh', '4096', '--lambda1', '10', '--critic_iter', '5',
 	'--nclass_all', '200', '--dataroot', str(DATAROOT), '--dataset', 'CUB', '--eval_interval', '5',
-	'--batch_size', '64', '--noiseSize', '312', '--attSize', '312', '--resSize', '2048',
+	'--batch_size', '64', '--noiseSize', '1024', '--attSize', '1024', '--resSize', '2048',
 	'--lr', '0.0001', '--classifier_lr', '0.001', '--gamma_recons', '0.01', '--dec_lr', '0.0001',
 	'--gamma_ADV', '10', '--gamma_VAE', '1.0', '--embed_type', 'VA',
-	'--n_T', '4', '--dim_t', '312', '--gamma_x0', '1.0', '--gamma_xt', '1.0',
+	'--n_T', '4', '--dim_t', '1024', '--gamma_x0', '1.0', '--gamma_xt', '1.0',
 	'--gamma_dist', '2.0', '--factor_dist', '1.5',
 	'--split_percent', '100', '--syn_num', '1440',
 	'--netR_model_path', str(NETR_MODEL),

@@ -1,6 +1,6 @@
 # ZeroDiff 最简复现实验指南
 
-本文档按当前实验设置固定使用 `att` 语义嵌入，不再使用 `sent`。
+本文档按当前实验设置：CUB 使用 `sent` 语义嵌入，AWA2 和 SUN 使用 `att` 语义嵌入。
 
 ## 0. 服务器信息与环境准备
 
@@ -90,7 +90,7 @@ FineTune/PACO/checkpoints/
 对每个数据集，至少要准备以下文件：
 
 - `Dataset/<DATASET>/res101.mat`
-- `Dataset/<DATASET>/att_splits.mat`
+- `Dataset/<DATASET>/att_splits.mat`（AWA2、SUN）或 `Dataset/<DATASET>/sent_splits.mat`（CUB）
 - `Dataset/<DATASET>/ce_ce.mat`
 - `Dataset/<DATASET>/con_paco.mat`
 
