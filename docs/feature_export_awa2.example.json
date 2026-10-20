@@ -1,0 +1,19 @@
+{
+  "training": {
+    "dataset": "AWA2",
+    "split_percent": 100,
+    "resSize": 2048,
+    "attSize": 85,
+    "noiseSize": 85,
+    "dim_t": 85,
+    "decoder_layer_sizes": [4096, 2048],
+    "n_T": 4,
+    "ddpmbeta1": 0.1,
+    "ddpmbeta2": 20.0,
+    "class_embedding": "att",
+    "class_embedding_norm": true,
+    "preprocessing": true,
+    "standardization": false,
+    "validation": false
+  }
+}

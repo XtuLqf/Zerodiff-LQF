@@ -13,6 +13,7 @@ ENV/
 Dataset/
 log/
 out/
+exports/
 pretrained_models/
 FineTune/PACO/checkpoints/
 FineTune/PACO/log/
