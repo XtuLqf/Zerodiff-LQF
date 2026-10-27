@@ -152,13 +152,13 @@ class RelationTests(unittest.TestCase):
                                class_names=np.array([f"class_{c}" for c in ids]),
                                attributes=Attributes(all_attributes), files={}, alignment={})
         fake_data = ModuleType("feature_export.data")
-        fake_data.load_awa2 = lambda *_: data
+        fake_data.load_dataset = lambda *_: data
         fake_data.file_sha256 = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
         fake_torch = ModuleType("torch")
         fake_torch.__version__ = "FAKE_TEST_ONLY"
         fake_torch.cuda = SimpleNamespace(is_available=lambda: False)
         fake_runtime = ModuleType("feature_export.runtime")
-        fake_runtime.load_options = lambda *_: (SimpleNamespace(split_percent=100), {})
+        fake_runtime.load_options = lambda *_, **kwargs: (SimpleNamespace(split_percent=100), {})
         fake_runtime.FeatureRuntime = lambda *_: SimpleNamespace(
             device="cpu", method_metadata=None, has_relation_state=False)
 

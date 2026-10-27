@@ -2,6 +2,16 @@
 
 本实验只检验：语义空间与真实视觉类别中心共同支持的远近排序，是否在原始 ZeroDiff 正式生成后发生反转。不训练模型，不使用 PaCo、RSC、SDGA、GSR，不比较扩散状态。
 
+统一入口为 `scripts/diagnose_relations.py --dataset AWA2|CUB|SUN`；原 `scripts/diagnose_awa2_relations.py` 入口继续兼容 AWA2 旧命令。
+
+| 数据集 | 语义文件 | 语义维度 | 生成条件语义 L2 归一化 | 全部未见类数 |
+| --- | --- | --- | --- | --- |
+| AWA2 | `att_splits.mat` 的 `original_att` | 85 | 是 | 10 |
+| CUB | `sent_splits.mat` 的 `att` | 1024 | 否 | 50 |
+| SUN | `att_splits.mat` 的 `original_att` | 102 | 是 | 72 |
+
+上述设置与仓库各自的 DFG 训练脚本一致。三种数据集的评价距离均为余弦距离；生成条件是否归一化与评价指标分别处理。
+
 ## 服务器准备
 
 按项目现有的 Git 流程提交并同步本次新增文件，在服务器项目根目录使用原有 ZeroDiff 训练环境运行。无需上传或解压运行包，也无需同步 `log/`、`out/` 中的权重。脚本直接复用项目中的基线网络定义和正常推理接口，不需要导入训练脚本。
@@ -12,7 +22,9 @@
 - `Dataset/AWA2/att_splits.mat`：类别属性、名称及划分。
 - `Dataset/AWA2/ce_ce.mat`：与该 checkpoint 一致的 2048 维视觉特征。
 - 纯 ZeroDiff DFG checkpoint，以及该次训练实际使用的 DRG checkpoint。
-- 实际训练配置 JSON，推荐明确提供；缺省时查找 DFG 同目录的 `config.json`，再缺省则沿用仓库 AWA2 默认配置，并在 manifest 中记录。
+- 实际训练配置 JSON，推荐明确提供；缺省时查找 DFG 同目录的 `config.json`，再缺省则沿用仓库所选数据集的默认配置，并在 manifest 中记录。
+
+CUB、SUN 的数据目录结构相同，分别将 `AWA2` 换成 `CUB`、`SUN`，CUB 语义文件换成 `sent_splits.mat`。不需要 `con_paco.mat`。
 
 `docs/feature_export_awa2.example.json` 仅为配置示例，不能未经核对当作训练记录。若模型使用 10% 或 30% 训练数据，须提供相应 split MAT，并设置 `--split-percent`；首轮建议使用 100% 模型。
 
@@ -40,11 +52,41 @@ python scripts/diagnose_awa2_relations.py \
 
 默认设置：10 个未见类，每类 100 个生成特征，5 个生成随机种子（9182–9186），每类 batch size 100，语义及真实视觉相对距离间隔阈值 0.05，生成并列阈值 0.000001。
 
+## CUB 与 SUN 单种子检查
+
+以下两条命令使用用户提供的 100% `gzsl_VCS` DFG 权重，以及当前训练脚本优先使用的 DRG 权重。CUB 种子为 3483，SUN 种子为 4115；每类 100 个生成特征，其他指标与 AWA2 保持一致。先通过 Git 同步全部改动，再在服务器项目根目录分别运行。
+
+```bash
+python scripts/diagnose_relations.py \
+  --dataset CUB --dataroot Dataset \
+  --dfg-checkpoint "out/CUB/zerodiff_DFG_100percent_att:sent_b:64_lr:0.0001_n_T:4_betas:0.1,20_gamma:ADV:10.0_VAE:1.0_x0:1.0_xt:1.0_dist:2.0_f:1.5_num:1440gzsl_VCS.tar" \
+  --drg-checkpoint "out/CUB/zerodiff_DRG_100percent_att:sent_b:64_lr:0.0001_n_T:4_betas:0.1,20_gamma:ADV:1.0_VAE:0.0_x0:1.0_xt:1.0_dist:1.0_num:300_gzsl.tar" \
+  --training-config docs/feature_export_cub.example.json \
+  --split-percent 100 --sampling one-step \
+  --seeds 3483 --samples-per-class 100 --batch-size 100 \
+  --device cuda:0 \
+  --output-dir out/relation_diagnostic/CUB_100pct_onestep_seed3483
+```
+
+```bash
+python scripts/diagnose_relations.py \
+  --dataset SUN --dataroot Dataset \
+  --dfg-checkpoint "out/SUN/zerodiff_DFG_100percent_att:att_b:64_lr:0.0001_n_T:4_betas:0.1,20_gamma:ADV:1.0_VAE:1.0_x0:1.0_xt:1.0_dist:1.0_f:1.5_num:400gzsl_VCS.tar" \
+  --drg-checkpoint "out/SUN/zerodiff_DRG_100percent_att:att_b:64_lr:0.0001_n_T:4_betas:0.1,20_gamma:ADV:1.0_VAE:1.0_x0:1.0_xt:1.0_dist:0.0_num:400_gzsl.tar" \
+  --training-config docs/feature_export_sun.example.json \
+  --split-percent 100 --sampling one-step \
+  --seeds 4115 --samples-per-class 100 --batch-size 100 \
+  --device cuda:0 \
+  --output-dir out/relation_diagnostic/SUN_100pct_onestep_seed4115
+```
+
+全部候选三元组数为 CUB 58,800、SUN 178,920；脚本遍历全部候选，不抽样挑选类别。单种子不计算跨采样标准差，结果标为未定义。分别返回两份输出目录中的 `results.zip` 即可，无须传输原始数据或模型。图中长类别名称会截短，CSV 保留完整名称。
+
 ## 指标约定
 
 先平均视觉特征得到类别中心，再计算余弦距离；类别语义直接计算余弦距离。不进行 PCA、t-SNE 或可学习投影。
 
-对每个锚点类别，遍历其余类别的无序对，并按语义距离确定 near/far。10 类共 360 个候选三元组。定义相对间隔：
+对每个锚点类别，遍历其余类别的无序对，并按语义距离确定 near/far。N 个未见类共 N×(N−1)×(N−2)/2 个候选三元组，AWA2 为 360 个。定义相对间隔：
 
 ```text
 gap = (distance_far - distance_near) / max(distance_far + distance_near, 1e-12)
@@ -81,7 +123,7 @@ gap = (distance_far - distance_near) / max(distance_far + distance_near, 1e-12)
 ## 软件验证
 
 ```bash
-python -m unittest discover -s tests -p test_relations.py -v
+python -m unittest discover -s tests -p 'test_relation*.py' -v
 ```
 
 软件测试采用已知几何或构造数据，不构成 ZeroDiff 的实测证据。

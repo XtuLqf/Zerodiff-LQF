@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure semantic ordering reversals supported by real AWA2 class centres.
+"""Measure semantic ordering reversals supported by real class centres.
 
 Run from the repository root. No training or PaCo data is needed.
 """
@@ -19,10 +19,12 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from feature_export.specs import DATASET_SPECS
 
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dataset", choices=list(DATASET_SPECS), default="AWA2")
     parser.add_argument("--dataroot", type=Path, default=ROOT / "Dataset")
     parser.add_argument("--dfg-checkpoint", type=Path, required=True)
     parser.add_argument("--drg-checkpoint", type=Path, required=True)
@@ -35,9 +37,11 @@ def parse_args(argv=None):
     parser.add_argument("--min-gap", type=float, default=0.05)
     parser.add_argument("--tie-gap", type=float, default=1e-6)
     parser.add_argument("--device", default="auto")
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "out" / "relation_diagnostic" / "AWA2")
+    parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--check-inputs", action="store_true", help="Check paths only; no model/dependency loading.")
     args = parser.parse_args(argv)
+    if args.output_dir is None:
+        args.output_dir = ROOT / "out" / "relation_diagnostic" / args.dataset
     if args.samples_per_class < 1 or args.batch_size < 1:
         parser.error("sample count and batch size must be positive")
     if not args.seeds or len(set(args.seeds)) != len(args.seeds) or any(not 0 <= s < 2**63 - 1 for s in args.seeds):
@@ -48,9 +52,10 @@ def parse_args(argv=None):
 
 
 def input_paths(args):
-    paths = [args.dataroot / "AWA2" / name for name in ("res101.mat", "att_splits.mat", "ce_ce.mat")]
+    split_name = DATASET_SPECS[args.dataset]["embedding"] + "_splits.mat"
+    paths = [args.dataroot / args.dataset / name for name in ("res101.mat", split_name, "ce_ce.mat")]
     if args.split_percent != 100:
-        paths.append(args.dataroot / "AWA2" / f"split_{args.split_percent}percent.mat")
+        paths.append(args.dataroot / args.dataset / f"split_{args.split_percent}percent.mat")
     paths += [args.dfg_checkpoint, args.drg_checkpoint]
     if args.training_config is None:
         candidate = args.dfg_checkpoint.parent / "config.json"
@@ -80,7 +85,7 @@ def figure_svg(summary, rows, outcomes, class_names):
         extra = " ".join(f'{k.replace("_", "-")}="{v}"' for k, v in attrs.items())
         parts.append(f'<text x="{x}" y="{y}" font-size="{size}" {extra}>{escape(str(value))}</text>')
 
-    text(30, 35, "ZeroDiff class-relation diagnostic on AWA2 unseen classes", 23, font_weight="bold")
+    text(30, 35, f'ZeroDiff class-relation diagnostic on {summary.get("dataset", "AWA2")} unseen classes', 23, font_weight="bold")
     text(30, 65, f'Eligible triplets: {summary["eligible_triplets"]} / {summary["total_triplets"]}; '
          f'reference and real relative gaps > {summary["min_gap"]:g}', 14)
     text(30, 108, "(a) Measured ordering reversal", 19, font_weight="bold")
@@ -91,8 +96,11 @@ def figure_svg(summary, rows, outcomes, class_names):
         row = rows[example["triplet_index"]]
         observation = outcomes[example["seed_index"]][example["triplet_index"]]
         a, b, c = [class_names[row[key]] for key in ("anchor", "near", "far")]
-        text(35, 140, f"Anchor: {a}", 16)
-        text(35, 166, f"B: {b}     C: {c}", 15)
+        def fit_label(value, limit=48):
+            return value if len(value) <= limit else value[:limit - 3] + "..."
+        text(35, 138, fit_label(f"Anchor: {a}"), 14)
+        text(35, 160, fit_label(f"B: {b}"), 14)
+        text(35, 182, fit_label(f"C: {c}"), 14)
         spaces = [("Class semantics", row["semantic_near"], row["semantic_far"]),
                   ("Real visual centres", row["real_near"], row["real_far"]),
                   ("Generated centres", observation["generated_near"], observation["generated_far"])]
@@ -131,7 +139,8 @@ def figure_svg(summary, rows, outcomes, class_names):
         sd_label = f"{sd*100:.2f} percentage points" if sd is not None else "undefined (one seed)"
         text(595, 465, f'Mean {aggregate["mean_reversal_rate"]*100:.2f}%  |  '
              f'SD {sd_label}', 14)
-        text(595, 488, "Repeated generation from one fixed checkpoint.", 12)
+        text(595, 488, "One generation seed; fixed checkpoint." if len(records) == 1
+             else "Repeated generation from one fixed checkpoint.", 12)
     else:
         text(595, 200, "No eligible triplets; reversal rate is undefined.", 15)
     text(30, 523, f'Sampling: {summary["sampling"]}; {summary["samples_per_class"]} generated features per class; '
@@ -143,14 +152,14 @@ def figure_svg(summary, rows, outcomes, class_names):
 def run(args):
     import numpy as np
     import torch
-    from feature_export.data import file_sha256, load_awa2
+    from feature_export.data import file_sha256, load_dataset
     from feature_export.relations import class_centers, cosine_distances, reference_triplets, score_triplets, choose_example
     from feature_export.runtime import load_options, FeatureRuntime, generate_features
 
-    options, training = load_options(args.split_percent, args.training_config)
+    options, training = load_options(args.split_percent, args.training_config, dataset=args.dataset)
     if training.get("drg_sha256") and training["drg_sha256"] != file_sha256(args.drg_checkpoint):
         raise ValueError("DRG checkpoint hash disagrees with the training config.")
-    data = load_awa2(args.dataroot, options)
+    data = load_dataset(args.dataroot, options)
     device = args.device if args.device != "auto" else ("cuda:0" if torch.cuda.is_available() else "cpu")
     runtime = FeatureRuntime(options, args.dfg_checkpoint, args.drg_checkpoint, device)
     metadata_method = runtime.method_metadata
@@ -183,7 +192,7 @@ def run(args):
                   "mean_tie_rate": float(np.mean([r["tie_rate"] for r in records]))} if eligible else None)
     example = choose_example(rows, outcomes_by_seed)
     summary = {
-        "schema_version": "awa2-class-relations-v1", "dataset": "AWA2", "split": "test_unseen_loc",
+        "schema_version": "class-relations-v1", "dataset": args.dataset, "split": "test_unseen_loc",
         "sampling": args.sampling, "seeds": args.seeds, "samples_per_class": args.samples_per_class,
         "min_gap": args.min_gap, "tie_gap": args.tie_gap, "distance": "cosine_of_class_mean",
         "total_triplets": len(rows), "eligible_triplets": eligible,
@@ -242,7 +251,8 @@ def run(args):
             "inputs": {str(p.resolve()): file_sha256(p) for p in [args.dfg_checkpoint, args.drg_checkpoint]
                        + ([args.training_config] if args.training_config else [])},
             "source_sha256": {name: file_sha256(ROOT / name) for name in
-                              ["scripts/diagnose_awa2_relations.py", "feature_export/relations.py",
+                              ["scripts/diagnose_awa2_relations.py", "scripts/diagnose_relations.py",
+                               "feature_export/relations.py", "feature_export/specs.py",
                                "feature_export/runtime.py", "feature_export/data.py", "zerodiff_tools.py"]},
             "artifacts": {p.name: file_sha256(p) for p in stage.iterdir()},
         }

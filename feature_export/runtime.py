@@ -11,6 +11,7 @@ from pathlib import Path
 import torch
 
 import zerodiff_tools
+from feature_export.specs import DATASET_SPECS
 
 
 DEFAULTS = {
@@ -22,10 +23,15 @@ DEFAULTS = {
 }
 
 
-def load_options(split_percent: int, config_path: Path | None = None):
+def load_options(split_percent: int, config_path: Path | None = None, dataset: str = "AWA2"):
     if type(split_percent) is not int or split_percent not in (10, 30, 100):
         raise ValueError("split_percent must be 10, 30 or 100.")
-    values = dict(DEFAULTS)
+    if dataset not in DATASET_SPECS:
+        raise ValueError("dataset must be AWA2, CUB or SUN.")
+    spec = DATASET_SPECS[dataset]
+    values = {**DEFAULTS, "dataset": dataset, "attSize": spec["semantic_dim"],
+              "noiseSize": spec["semantic_dim"], "dim_t": spec["semantic_dim"],
+              "class_embedding": spec["embedding"], "class_embedding_norm": spec["normalize"]}
     training = {}
     if config_path is not None:
         document = json.loads(config_path.read_text(encoding="utf-8-sig"))
@@ -41,11 +47,12 @@ def load_options(split_percent: int, config_path: Path | None = None):
     for key in ("class_embedding_norm", "preprocessing", "standardization", "validation"):
         if type(values[key]) is not bool:
             raise ValueError(f"{key} must be a JSON boolean (true or false).")
-    if values["dataset"] != "AWA2" or values["class_embedding"] != "att" or values["validation"]:
-        raise ValueError("Only the AWA2 att/test_unseen protocol is supported.")
+    if (values["dataset"] != dataset or values["class_embedding"] != spec["embedding"]
+            or values["validation"]):
+        raise ValueError(f"Only the {dataset} {spec['embedding']}/test_unseen protocol is supported.")
     if (type(values["resSize"]) is not int or type(values["attSize"]) is not int
-            or values["resSize"] != 2048 or values["attSize"] != 85):
-        raise ValueError("This export interface requires AWA2 V=2048 and attributes=85.")
+            or values["resSize"] != 2048 or values["attSize"] != spec["semantic_dim"]):
+        raise ValueError(f"This interface requires {dataset} V=2048 and semantics={spec['semantic_dim']}.")
     if (type(values["n_T"]) is not int or values["n_T"] < 1
             or type(values["noiseSize"]) is not int or values["noiseSize"] < 1
             or type(values["dim_t"]) is not int or values["dim_t"] < 2):

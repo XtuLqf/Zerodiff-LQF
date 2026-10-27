@@ -1,0 +1,19 @@
+{
+  "training": {
+    "dataset": "CUB",
+    "split_percent": 100,
+    "resSize": 2048,
+    "attSize": 1024,
+    "noiseSize": 1024,
+    "dim_t": 1024,
+    "decoder_layer_sizes": [4096, 2048],
+    "n_T": 4,
+    "ddpmbeta1": 0.1,
+    "ddpmbeta2": 20.0,
+    "class_embedding": "sent",
+    "class_embedding_norm": false,
+    "preprocessing": true,
+    "standardization": false,
+    "validation": false
+  }
+}
